@@ -17,7 +17,7 @@ class WorkerSignals(QObject):
     error = Signal(str)
 
 def on_worker_finished():
-        pass
+    window.statusBar().showMessage("Job completed.")
 
 def on_worker_progress(value):
     window.progressBar.setValue(value)
@@ -33,7 +33,7 @@ class Worker(QRunnable):
         super().__init__()
         self.signals = WorkerSignals()
         self._is_interrupted = False
-        self.nlp=spacy.load("en_core_web_sm")
+        self.nlp=spacy.load("en_core_web_sm") #MODIFICARE!!!
     
     def cancel(self):
         self._is_interrupted = True
@@ -47,12 +47,14 @@ class Worker(QRunnable):
             check_buttons()
             nouns=self.extract_nouns(window.txtManuscript.text()) #gets a list of unique nouns
             self.signals.progress.emit(1)
+            correlated_nouns= self.find_correlated_nouns(nouns, polished_list, 0.65)
+            self.signals.progress.emit(2)
         except Exception as e:
-            self.signals.error.emit("An error occurred: " + e.args[0])
+            self.signals.error.emit("An error occurred: " + str(e))
         finally:
             is_working=False
-            self.signals.finished.emit("Job completed.")
-            check_buttons()
+            #self.signals.finished.emit()
+            #check_buttons()
 
     def extract_nouns(self, filepath):
         extension = os.path.splitext(filepath)[1].lower()
@@ -75,6 +77,20 @@ class Worker(QRunnable):
             if token.pos_ == "NOUN" and not token.is_punct and not token.is_space:
                 unique_nouns.add(token.lemma_.lower())
         return sorted(list(unique_nouns))
+    
+    def find_correlated_nouns(self, nouns, keywords, threshold=0.65):
+        keyword_docs = [self.nlp(keyword) for keyword in keywords]
+        filtered_nouns = set()
+
+        for noun in nouns:
+            noun_doc = self.nlp(noun)
+            for kw_doc in keyword_docs:
+                if noun_doc.has_vector and kw_doc.has_vector:
+                    similarity = noun_doc.similarity(kw_doc)
+                    if similarity >= threshold:
+                        filtered_nouns.add(noun)
+                        break  # at least one keyword has to be  beyond threshold
+        return sorted(filtered_nouns)
 
 def resource_path(relative_path):
     try:
@@ -93,7 +109,7 @@ def manuscript_select():
             window.txtManuscript.setText(file_name[0])
             check_buttons()
     except Exception as e:
-        window.statusBar().showMessage("An error occurred: " + e.args[0])
+        window.statusBar().showMessage("An error occurred: " + str(e))
 
 def output_select():
     try:
@@ -102,7 +118,7 @@ def output_select():
             window.txtOutput.setText(file_name[0])
             check_buttons()
     except Exception as e:
-        window.statusBar().showMessage("An error occurred: " + e.args[0])
+        window.statusBar().showMessage("An error occurred: " + str(e))
 
 def check_buttons():
     global is_working
@@ -136,7 +152,7 @@ def start_job():
         else:
            window.statusBar().showMessage("Please specify a valid set of keywords.") 
     except Exception as e:
-        window.statusBar().showMessage("An error occurred: " + e.args[0])
+        window.statusBar().showMessage("An error occurred: " + str(e))
 
 if __name__ == "__main__":
     try:
@@ -176,6 +192,6 @@ if __name__ == "__main__":
         msg_box = QMessageBox()
         msg_box.setIcon(QMessageBox.Critical)
         msg_box.setWindowTitle("Critical error")
-        msg_box.setText("A critical error occurred: " + e.args[0])
+        msg_box.setText("A critical error occurred: " + str(e))
         msg_box.setStandardButtons(QMessageBox.Ok)
         msg_box.exec()
