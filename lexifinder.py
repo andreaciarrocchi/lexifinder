@@ -9,6 +9,7 @@ import sys
 import docx
 from odf.opendocument import load as load_odt
 import spacy
+from spacy.util import get_package_path
 
 class WorkerSignals(QObject):
     progress = Signal(int)
@@ -33,8 +34,16 @@ class Worker(QRunnable):
         super().__init__()
         self.signals = WorkerSignals()
         self._is_interrupted = False
-        self.nlp=spacy.load("en_core_web_sm") #MODIFICARE!!!
-    
+        self.nlp=spacy.load(self.get_model_path())
+
+    def get_model_path(self):
+    # Funziona sia in .py che in eseguibile PyInstaller
+        if hasattr(sys, "_MEIPASS"):
+            base_path = sys._MEIPASS
+        else:
+            base_path = os.path.abspath(".")
+        return os.path.join(base_path, "en_core_web_md")
+
     def cancel(self):
         self._is_interrupted = True
 
@@ -47,7 +56,7 @@ class Worker(QRunnable):
             check_buttons()
             nouns=self.extract_nouns(window.txtManuscript.text()) #gets a list of unique nouns
             self.signals.progress.emit(1)
-            correlated_nouns= self.find_correlated_nouns(nouns, polished_list, 0.65)
+            correlated_nouns= self.find_correlated_nouns(nouns, polished_list, 0.67)
             self.signals.progress.emit(2)
         except Exception as e:
             self.signals.error.emit("An error occurred: " + str(e))
