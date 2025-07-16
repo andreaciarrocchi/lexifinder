@@ -187,6 +187,12 @@ def start_job():
     except Exception as e:
         window.statusBar().showMessage("An error occurred: " + str(e))
 
+def slider_value_changed():
+    try:
+        window.lblValue.setText(str(window.horizontalSlider.value()))
+    except Exception as e:
+        window.statusBar().showMessage("An error occurred: " + str(e))
+
 if __name__ == "__main__":
     try:
         app = QApplication(sys.argv)
@@ -212,6 +218,7 @@ if __name__ == "__main__":
         window.btnOutputSelect.clicked.connect(output_select)
         window.btnStart.clicked.connect(start_job)
         window.txtKeywords.textChanged.connect(check_buttons)
+        window.horizontalSlider.valueChanged.connect(slider_value_changed)
 
         global is_working
         is_working = False
