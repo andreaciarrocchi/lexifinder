@@ -33,15 +33,7 @@ class Worker(QRunnable):
         super().__init__()
         self.signals = WorkerSignals()
         self._is_interrupted = False
-        self.nlp=spacy.load(self.get_model_path())
-
-    def get_model_path(self):
-    # works with .py and with PyInstaller
-        if hasattr(sys, "_MEIPASS"):
-            base_path = sys._MEIPASS
-        else:
-            base_path = os.path.abspath(".")
-        return os.path.join(base_path, "en_core_web_md")
+        self.nlp=spacy.load(resource_path("en_core_web_md"))
 
     def cancel(self):
         self._is_interrupted = True
