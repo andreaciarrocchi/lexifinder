@@ -6,10 +6,8 @@ import qt_themes
 import darkdetect
 import os
 import sys
-import docx
-from odf.opendocument import load as load_odt
 import spacy
-from spacy.util import get_package_path
+import fitz  # PyMuPDF
 
 class WorkerSignals(QObject):
     progress = Signal(int)
@@ -19,6 +17,7 @@ class WorkerSignals(QObject):
 
 def on_worker_finished():
     window.statusBar().showMessage("Job completed.")
+    check_buttons()
 
 def on_worker_progress(value):
     window.progressBar.setValue(value)
@@ -37,7 +36,7 @@ class Worker(QRunnable):
         self.nlp=spacy.load(self.get_model_path())
 
     def get_model_path(self):
-    # Funziona sia in .py che in eseguibile PyInstaller
+    # works with .py and with PyInstaller
         if hasattr(sys, "_MEIPASS"):
             base_path = sys._MEIPASS
         else:
@@ -49,7 +48,6 @@ class Worker(QRunnable):
 
     def run(self):
         try:
-            model_path = os.path.dirname(self.nlp.path)
             self.signals.message.emit("Job started..")
             global is_working
             is_working=True
@@ -58,48 +56,82 @@ class Worker(QRunnable):
             self.signals.progress.emit(1)
             correlated_nouns= self.find_correlated_nouns(nouns, polished_list, 0.67)
             self.signals.progress.emit(2)
+            index=self.extract_occurrences_by_page(window.txtManuscript.text(), correlated_nouns)
+            self.signals.progress.emit(3)
+            self.write_on_file(index)
+            self.signals.progress.emit(4)
         except Exception as e:
             self.signals.error.emit("An error occurred: " + str(e))
         finally:
             is_working=False
-            #self.signals.finished.emit()
-            #check_buttons()
+            self.signals.finished.emit()
+
+    def write_on_file(self, index_dict):
+        try:
+            output_path = window.txtOutput.text()
+            if not output_path:
+                self.signals.error.emit("No output file was selected.")
+                return
+
+            with open(output_path, "w", encoding="utf-8") as f:
+                for noun in sorted(index_dict):
+                    pages = ", ".join(str(p) for p in sorted(index_dict[noun]))
+                    f.write(f"{noun} {pages}\n")
+        except Exception as e:
+            self.signals.error.emit("An error occurred while saving the output: " + str(e))
+
+
+    def extract_occurrences_by_page(self, pdf_path, word_list):
+        try:
+            doc = fitz.open(pdf_path)
+            index = {word.lower(): [] for word in word_list}
+
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                text = page.get_text().lower()
+                for word in word_list:
+                    if word.lower() in text:
+                        index[word.lower()].append(page_num + 1)
+            return index
+        except Exception as e:
+            self.signals.error.emit("An error occurred while extracting occurrences: " + str(e))
 
     def extract_nouns(self, filepath):
-        extension = os.path.splitext(filepath)[1].lower()
-        text=""
-        if(extension==".docx"):
-            doc = docx.Document(filepath)
-            full_text = []
-            for para in doc.paragraphs:
-                full_text.append(para.text)
-            text= '\n'.join(full_text)
-        else:
-            odt_doc = load_odt(filepath)
-            text = ""
-            for element in odt_doc.getElementsByType(odt_doc.text_elements):
-                if element.text:
-                    text += element.text + " "
-        document=self.nlp(text)
-        unique_nouns = set()
-        for token in document:
-            if token.pos_ == "NOUN" and not token.is_punct and not token.is_space:
-                unique_nouns.add(token.lemma_.lower())
-        return sorted(list(unique_nouns))
-    
-    def find_correlated_nouns(self, nouns, keywords, threshold=0.65):
-        keyword_docs = [self.nlp(keyword) for keyword in keywords]
-        filtered_nouns = set()
+        try:
+            if not filepath.lower().endswith(".pdf"):
+                raise ValueError("File must be PDF.")
 
-        for noun in nouns:
-            noun_doc = self.nlp(noun)
-            for kw_doc in keyword_docs:
-                if noun_doc.has_vector and kw_doc.has_vector:
-                    similarity = noun_doc.similarity(kw_doc)
-                    if similarity >= threshold:
-                        filtered_nouns.add(noun)
-                        break  # at least one keyword has to be  beyond threshold
-        return sorted(filtered_nouns)
+            doc = fitz.open(filepath)
+            text = ""
+            for page in doc:
+                text += page.get_text() + "\n"
+
+            document = self.nlp(text)
+            unique_nouns = set()
+            for token in document:
+                if token.pos_ == "NOUN" and not token.is_punct and not token.is_space:
+                    unique_nouns.add(token.lemma_.lower())
+
+            return sorted(list(unique_nouns))
+        except Exception as e:
+            self.signals.error.emit("An error occurred while extracting nouns: " + str(e))
+
+    def find_correlated_nouns(self, nouns, keywords, threshold=0.65):
+        try:
+            keyword_docs = [self.nlp(keyword) for keyword in keywords]
+            filtered_nouns = set()
+
+            for noun in nouns:
+                noun_doc = self.nlp(noun)
+                for kw_doc in keyword_docs:
+                    if noun_doc.has_vector and kw_doc.has_vector:
+                        similarity = noun_doc.similarity(kw_doc)
+                        if similarity >= threshold:
+                            filtered_nouns.add(noun)
+                            break  # at least one keyword has to be  beyond threshold
+            return sorted(filtered_nouns)
+        except Exception as e:
+            self.signals.error.emit("An error occurred while saving the output: " + str(e))
 
 def resource_path(relative_path):
     try:
@@ -113,8 +145,8 @@ def resource_path(relative_path):
 
 def manuscript_select():
     try:
-        file_name = QFileDialog.getOpenFileName(window, "Open manuscript",  filter="*.docx | *.odt")
-        if file_name:
+        file_name = QFileDialog.getOpenFileName(window, "Select PDF", filter="PDF files (*.pdf)")
+        if file_name and file_name[0]:
             window.txtManuscript.setText(file_name[0])
             check_buttons()
     except Exception as e:
@@ -194,6 +226,7 @@ if __name__ == "__main__":
         window.progressBar.setMaximum(4)
         window.progressBar.setValue(0)
         window.progressBar.setEnabled(False)
+        window.lblValue.setText(str(window.horizontalSlider.value()))
 
         window.show()
         app.exec()
