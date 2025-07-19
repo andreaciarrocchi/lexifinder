@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QApplication, QWidget, QFileDialog, QMessageBox
+from PySide6.QtWidgets import QApplication, QWidget, QFileDialog, QMessageBox, QToolTip
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, QThreadPool, QRunnable, QFile, QObject, Signal, QUrl, Qt
 from PySide6.QtGui import QDesktopServices, QCursor
@@ -17,7 +17,12 @@ class WorkerSignals(QObject):
 
 def on_worker_finished():
     global word_count
-    window.statusBar().showMessage("Job completed. " + str(word_count) + " words were added to the index.")
+    global job_cancelled
+
+    if(not job_cancelled):
+        window.statusBar().showMessage("Job completed. " + str(word_count) + " words were added to the index.")
+    else:
+        window.statusBar().showMessage("Job cancelled.")
     QApplication.restoreOverrideCursor()
     check_buttons()
 
@@ -47,20 +52,33 @@ class Worker(QRunnable):
 
     def run(self):
         try:
+            global job_cancelled
             self.signals.message.emit("Job started..")
             global is_working
             is_working=True
             check_buttons()
             nouns=self.extract_nouns(window.txtManuscript.text()) #gets a list of unique nouns
+            if self._is_interrupted:
+                job_cancelled=True
+                return
             self.signals.progress.emit(1)
             correlated_nouns= self.find_correlated_nouns(nouns, polished_list, window.horizontalSlider.value() / 100)
             global word_count
             word_count = len(correlated_nouns)
+            if self._is_interrupted:
+                job_cancelled=True
+                return
             self.signals.progress.emit(2)
             index=self.extract_occurrences_by_page(window.txtManuscript.text(), correlated_nouns)
+            if self._is_interrupted:
+                job_cancelled=True
+                return
             self.signals.progress.emit(3)
             if(len(index)!=0):
                 self.write_on_file(index)
+            if self._is_interrupted:
+                job_cancelled=True
+                return    
             self.signals.progress.emit(4)
         except Exception as e:
             self.signals.error.emit("An error occurred: " + str(e))
@@ -182,6 +200,9 @@ def check_buttons():
 
 def start_job():
     try:
+        global job_cancelled
+        job_cancelled=False
+        window.progressBar.setValue(0)
         window.statusBar().showMessage("Initialization..")
         QApplication.processEvents()
         QApplication.setOverrideCursor(QCursor(Qt.BusyCursor))
@@ -249,15 +270,21 @@ if __name__ == "__main__":
         window.btnManuscriptSelect.clicked.connect(manuscript_select)
         window.btnCancel.clicked.connect(cancel_job)
         window.btnOutputSelect.clicked.connect(output_select)
+        window.btnDonate.clicked.connect(donate_url)
         window.btnStart.clicked.connect(start_job)
         window.txtKeywords.textChanged.connect(check_buttons)
         window.horizontalSlider.valueChanged.connect(slider_value_changed)
+
+        window.txtKeywords.setToolTip("Nouns separated by semicolons (e.g. myword; my other word; lastword)")
 
         global is_working
         is_working = False
 
         global word_count
         word_count=0
+
+        global job_cancelled
+        job_cancelled=False
 
         window.progressBar.setMaximum(4)
         window.progressBar.setValue(0)
