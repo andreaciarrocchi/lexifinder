@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QApplication, QWidget, QFileDialog, QMessageBox
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtCore import QFile, QThreadPool, QRunnable, QUrl, Qt, QFile, QDir, QObject, Signal, Slot
+from PySide6.QtCore import QFile, QThreadPool, QRunnable, QFile, QObject, Signal, QUrl, Qt
 from PySide6.QtGui import QDesktopServices, QCursor
 import qt_themes
 import darkdetect
@@ -16,7 +16,9 @@ class WorkerSignals(QObject):
     error = Signal(str)
 
 def on_worker_finished():
-    window.statusBar().showMessage("Job completed.")
+    global word_count
+    window.statusBar().showMessage("Job completed. " + str(word_count) + " words were added to the index.")
+    QApplication.restoreOverrideCursor()
     check_buttons()
 
 def on_worker_progress(value):
@@ -26,6 +28,7 @@ def on_worker_message(message):
     window.statusBar().showMessage(message)
 
 def on_worker_error(message):
+    QApplication.restoreOverrideCursor()
     window.statusBar().showMessage(message)
 
 class Worker(QRunnable):
@@ -37,6 +40,10 @@ class Worker(QRunnable):
 
     def cancel(self):
         self._is_interrupted = True
+        global is_working
+        is_working=False
+        QApplication.restoreOverrideCursor()
+        check_buttons()
 
     def run(self):
         try:
@@ -46,11 +53,14 @@ class Worker(QRunnable):
             check_buttons()
             nouns=self.extract_nouns(window.txtManuscript.text()) #gets a list of unique nouns
             self.signals.progress.emit(1)
-            correlated_nouns= self.find_correlated_nouns(nouns, polished_list, 0.67)
+            correlated_nouns= self.find_correlated_nouns(nouns, polished_list, window.horizontalSlider.value() / 100)
+            global word_count
+            word_count = len(correlated_nouns)
             self.signals.progress.emit(2)
             index=self.extract_occurrences_by_page(window.txtManuscript.text(), correlated_nouns)
             self.signals.progress.emit(3)
-            self.write_on_file(index)
+            if(len(index)!=0):
+                self.write_on_file(index)
             self.signals.progress.emit(4)
         except Exception as e:
             self.signals.error.emit("An error occurred: " + str(e))
@@ -108,7 +118,7 @@ class Worker(QRunnable):
         except Exception as e:
             self.signals.error.emit("An error occurred while extracting nouns: " + str(e))
 
-    def find_correlated_nouns(self, nouns, keywords, threshold=0.65):
+    def find_correlated_nouns(self, nouns, keywords, threshold):
         try:
             keyword_docs = [self.nlp(keyword) for keyword in keywords]
             filtered_nouns = set()
@@ -123,7 +133,7 @@ class Worker(QRunnable):
                             break  # at least one keyword has to be  beyond threshold
             return sorted(filtered_nouns)
         except Exception as e:
-            self.signals.error.emit("An error occurred while saving the output: " + str(e))
+            self.signals.error.emit("An error occurred while processing the manuscript: " + str(e))
 
 def resource_path(relative_path):
     try:
@@ -132,13 +142,12 @@ def resource_path(relative_path):
     except Exception:
         # Path when running from terminal
         base_path = os.path.abspath(".")
-
     return os.path.join(base_path, relative_path)
 
 def manuscript_select():
     try:
         file_name = QFileDialog.getOpenFileName(window, "Select PDF", filter="PDF files (*.pdf)")
-        if file_name and file_name[0]:
+        if file_name:
             window.txtManuscript.setText(file_name[0])
             check_buttons()
     except Exception as e:
@@ -148,7 +157,11 @@ def output_select():
     try:
         file_name = QFileDialog.getSaveFileName(window, "Output index",  filter="*.txt")
         if file_name:
-            window.txtOutput.setText(file_name[0])
+            if not file_name[0].lower().endswith(".txt") and file_name[0] != "":
+                file_name_final = file_name[0] + ".txt"
+            else:
+                file_name_final=file_name[0]
+            window.txtOutput.setText(file_name_final)
             check_buttons()
     except Exception as e:
         window.statusBar().showMessage("An error occurred: " + str(e))
@@ -169,6 +182,9 @@ def check_buttons():
 
 def start_job():
     try:
+        window.statusBar().showMessage("Initialization..")
+        QApplication.processEvents()
+        QApplication.setOverrideCursor(QCursor(Qt.BusyCursor))
         #polishes keywords of excessive spaces or semicolons
         keywords_text=window.txtKeywords.text()
         tmp = keywords_text.split(';')
@@ -193,6 +209,22 @@ def slider_value_changed():
     except Exception as e:
         window.statusBar().showMessage("An error occurred: " + str(e))
 
+def cancel_job():
+    try:
+        global worker
+        if 'worker' in globals():
+            worker.cancel()
+            QApplication.restoreOverrideCursor()
+    except Exception as e:
+        window.statusBar().showMessage("An error occurred: " + str(e))
+
+def donate_url():
+    try:
+        url = QUrl("https://paypal.me/ciarro85")
+        QDesktopServices.openUrl(url)
+    except:
+        window.statusBar().showMessage("An error occurred while launching the browser.")
+
 if __name__ == "__main__":
     try:
         app = QApplication(sys.argv)
@@ -215,6 +247,7 @@ if __name__ == "__main__":
         window.btnStart.setEnabled(False)
         
         window.btnManuscriptSelect.clicked.connect(manuscript_select)
+        window.btnCancel.clicked.connect(cancel_job)
         window.btnOutputSelect.clicked.connect(output_select)
         window.btnStart.clicked.connect(start_job)
         window.txtKeywords.textChanged.connect(check_buttons)
@@ -222,6 +255,10 @@ if __name__ == "__main__":
 
         global is_working
         is_working = False
+
+        global word_count
+        word_count=0
+
         window.progressBar.setMaximum(4)
         window.progressBar.setValue(0)
         window.progressBar.setEnabled(False)
@@ -229,6 +266,7 @@ if __name__ == "__main__":
 
         window.show()
         app.exec()
+
     except Exception as e:
         msg_box = QMessageBox()
         msg_box.setIcon(QMessageBox.Critical)
