@@ -28,5 +28,10 @@ I would like to introduce some new features:
 - adding a release for Mac, if I raise enough money to buy a Mac mini and pay the developer's fee
 - introducing the ability to organize the index in two layers, but I do not know if that is feasible
 
+## License
+Lexifinder is free software licensed under the GNU General Public License v3 (GPLv3). You may redistribute and/or modify it under the terms of the GPLv3 as published by the Free Software Foundation. See the LICENSE file for details.
+This software uses PySide6 (Qt for Python), which is released under the GPLv3 license. By using PySide6 under the GPL, this project must also comply with the terms of the GPLv3.
+You are free to inspect, modify, and redistribute this software, provided that you preserve the GPL license and include the full source code when distributing.
+
 ## How to contribute
 Suggestions, bug reporting, sponsorships and code contributions are welcomed. Feel free to share your ideas.
