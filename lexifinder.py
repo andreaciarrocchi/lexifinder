@@ -44,6 +44,7 @@ class Worker(QRunnable):
         self.nlp=spacy.load(resource_path("en_core_web_md"))
 
     def cancel(self):
+        # Set the flag to stop the task
         self._is_interrupted = True
         global is_working
         is_working=False
@@ -57,11 +58,15 @@ class Worker(QRunnable):
             global is_working
             is_working=True
             check_buttons()
+
+            # Step 1: extract unique nouns from the manuscript PDF
             nouns=self.extract_nouns(window.txtManuscript.text()) #gets a list of unique nouns
             if self._is_interrupted:
                 job_cancelled=True
                 return
             self.signals.progress.emit(1)
+
+            # Step 2: filter nouns by semantic similarity with input keywords
             correlated_nouns= self.find_correlated_nouns(nouns, polished_list, window.horizontalSlider.value() / 100)
             global word_count
             word_count = len(correlated_nouns)
@@ -69,11 +74,15 @@ class Worker(QRunnable):
                 job_cancelled=True
                 return
             self.signals.progress.emit(2)
+
+             # Step 3: build an index of noun occurrences, page by page
             index=self.extract_occurrences_by_page(window.txtManuscript.text(), correlated_nouns)
             if self._is_interrupted:
                 job_cancelled=True
                 return
             self.signals.progress.emit(3)
+
+            # Step 4: write the index to a text file
             if(len(index)!=0):
                 self.write_on_file(index)
             if self._is_interrupted:
@@ -92,7 +101,8 @@ class Worker(QRunnable):
             if not output_path:
                 self.signals.error.emit("No output file was selected.")
                 return
-
+            
+             # Save the index to a .txt file, each noun followed by its page numbers
             with open(output_path, "w", encoding="utf-8") as f:
                 for noun in sorted(index_dict):
                     pages = ", ".join(str(p) for p in sorted(index_dict[noun]))
@@ -106,6 +116,7 @@ class Worker(QRunnable):
             doc = fitz.open(pdf_path)
             index = {word.lower(): [] for word in word_list}
 
+            # Check each page for the presence of each target word
             for page_num in range(len(doc)):
                 page = doc[page_num]
                 text = page.get_text().lower()
@@ -126,6 +137,7 @@ class Worker(QRunnable):
             for page in doc:
                 text += page.get_text() + "\n"
 
+            # Use SpaCy to extract lemmatized nouns from the full text
             document = self.nlp(text)
             unique_nouns = set()
             for token in document:
@@ -138,9 +150,11 @@ class Worker(QRunnable):
 
     def find_correlated_nouns(self, nouns, keywords, threshold):
         try:
+            # Turn keywords into SpaCy Doc objects
             keyword_docs = [self.nlp(keyword) for keyword in keywords]
             filtered_nouns = set()
 
+            # Keep only nouns with similarity above the threshold to at least one keyword
             for noun in nouns:
                 noun_doc = self.nlp(noun)
                 for kw_doc in keyword_docs:
@@ -148,7 +162,7 @@ class Worker(QRunnable):
                         similarity = noun_doc.similarity(kw_doc)
                         if similarity >= threshold:
                             filtered_nouns.add(noun)
-                            break  # at least one keyword has to be  beyond threshold
+                            break  # only one match needed
             return sorted(filtered_nouns)
         except Exception as e:
             self.signals.error.emit("An error occurred while processing the manuscript: " + str(e))
