@@ -53,11 +53,11 @@ class Worker(QRunnable):
 
     def run(self):
         try:
-            global job_cancelled
-            self.signals.message.emit("Job started..")
             global is_working
             is_working=True
             check_buttons()
+            global job_cancelled
+            self.signals.message.emit("Job started..")
 
             # Step 1: extract unique nouns from the manuscript PDF
             nouns=self.extract_nouns(window.txtManuscript.text()) #gets a list of unique nouns
@@ -210,7 +210,7 @@ def check_buttons():
             window.progressBar.setEnabled(False)
     else:
         window.btnCancel.setEnabled(True)
-        window.btnStart.setEnabled(True)
+        window.btnStart.setEnabled(False)
 
 def start_job():
     try:
@@ -220,6 +220,7 @@ def start_job():
         window.statusBar().showMessage("Initialization..")
         QApplication.processEvents()
         QApplication.setOverrideCursor(QCursor(Qt.BusyCursor))
+
         #polishes keywords of excessive spaces or semicolons
         keywords_text=window.txtKeywords.text()
         tmp = keywords_text.split(';')
