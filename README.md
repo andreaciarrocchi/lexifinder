@@ -6,13 +6,13 @@ First, you need to convert your manuscript to PDF with your word processor. This
 
 ## How it works
 Lexifinder opens the pdf file and extracts all the nouns. Then, it compares each of them to keywords. Words that reach the semantic similarity threshold are selected. To perform such a job, I used the spaCy library (https://pypi.org/project/spacy/) with a pretrained model. Finally, the app searches all occurrences in pages of each matching words and saves the result in a text file.<br>
-The GUI has been designed with QT designer and the resulting ui file is loaded at startup. The Python script was converted to an executable file for Windows and Linux with PyInstaller (https://pyinstaller.org/en/stable/).
+The GUI has been designed with QT designer and the resulting ui file is loaded at startup. The Python script was converted to an executable file for Windows and Linux with PyInstaller (https://pyinstaller.org/en/stable/), with the following command
 
-On Windows, I bult the exe file with the command
 ```
 pyinstaller --onefile --icon=lexifinder.png -w --add-data "lexifinder.ui:." --add-data "en_core_web_md:." lexifinder.py
 ```
-I used the same command on Linux, and then created an AppImage with appimagetool (https://github.com/AppImage/appimagetool).
+
+On Linux, I then created an AppImage with appimagetool (https://github.com/AppImage/appimagetool).
 
 ## Releases
 
