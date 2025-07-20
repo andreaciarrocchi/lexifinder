@@ -15,7 +15,7 @@ pyinstaller --onefile --icon=lexifinder.png -w --add-data "lexifinder.ui:." --ad
 On Linux, I then created an AppImage (https://appimage.org/) with appimagetool (https://github.com/AppImage/appimagetool).
 
 ```
-appimagetool ./AppDir
+./appimagetool Lexifinder.AppDir
 ```
 
 ## Releases
