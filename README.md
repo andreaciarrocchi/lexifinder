@@ -19,7 +19,7 @@ On Linux, I then created an AppImage (https://appimage.org/) with appimagetool (
 ```
 
 ## Releases
-Two standalone releases are available: one for Windows (an executable file) and one for Linux (an AppImage). To ease the process of making the app available from the launcher, I packed the AppImage as a tar archive containing two BASH scripts to add (install.sh) and remove it (uninstall.sh).
+Two standalone releases are available: one for Windows (an executable file) and one for Linux (an AppImage). To ease the process of making the app available from the launcher, I packed the AppImage as a tar archive containing two BASH scripts to add (install_lexifinder.sh) and remove it (uninstall_lexifinder.sh).
 
 ## Future development
 I would like to introduce some new features:
