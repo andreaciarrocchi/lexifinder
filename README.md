@@ -19,6 +19,14 @@ appimagetool ./AppDir
 ```
 
 ## Releases
-Two standalone releases are available, one for Windows (available as executable file) and one for Linux (available as AppImage).
+Two standalone releases are available: one for Windows (an executable file) and one for Linux (an AppImage). To ease the process of making the app available from the launcher, I packed the AppImage as a tar archive containing two BASH scripts to add (install.sh) and remove it (uninstall.sh).
 
 ## Future development
+I would like to introduce some new features:
+- adding support for other languages, as the app now supports only English;
+- marking the selected words on the manuscript file (docx or odt), to allow the use of the word processor features related to index creation;
+- adding a release for Mac, if I raise enough money to buy a Mac mini and pay the developer's fee
+- introducing the ability to organize the index in two layers, but I do not know if that is feasible
+
+## How to contribute
+Suggestions, bug reporting, sponsorships and code contributions are welcomed. Feel free to share your ideas.
