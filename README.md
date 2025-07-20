@@ -12,8 +12,13 @@ The GUI has been designed with QT designer and the resulting ui file is loaded a
 pyinstaller --onefile --icon=lexifinder.png -w --add-data "lexifinder.ui:." --add-data "en_core_web_md:." lexifinder.py
 ```
 
-On Linux, I then created an AppImage with appimagetool (https://github.com/AppImage/appimagetool).
+On Linux, I then created an AppImage (https://appimage.org/) with appimagetool (https://github.com/AppImage/appimagetool).
+
+```
+appimagetool ./AppDir
+```
 
 ## Releases
+Two standalone releases are available, one for Windows (available as executable file) and one for Linux (available as AppImage).
 
 ## Future development
