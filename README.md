@@ -9,7 +9,7 @@ Lexifinder opens the pdf file and extracts all the nouns. Then, it compares each
 The GUI has been designed with QT designer and the resulting ui file is loaded at startup. The Python script was converted to an executable file for Windows and Linux with PyInstaller (https://pyinstaller.org/en/stable/), with the following command
 
 ```
-pyinstaller --onefile --icon=lexifinder.png -w --add-data "lexifinder.ui:." --add-data "en_core_web_md:." lexifinder.py
+pyinstaller --onefile --icon=lexifinder.png -w --add-data "lexifinder.ui:." --add-data "en_core_web_md:en_core_web_md" lexifinder.py
 ```
 
 On Linux, I then created an AppImage (https://appimage.org/) with appimagetool (https://github.com/AppImage/appimagetool).
